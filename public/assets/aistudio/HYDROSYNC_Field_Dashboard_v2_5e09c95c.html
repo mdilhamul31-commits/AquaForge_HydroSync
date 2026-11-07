@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HYDROSYNC Field Dashboard</title>
+<style>
+:root{--bg:#f4f7f6;--card:#fff;--tx:#14302a;--mut:#5d7a73;--bd:#d9e5e1;--ac:#1d8a4e;--red:#d64545;--grn:#3fae6a;--redbg:#fbe3e3;--blue:#1a7fd0;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1b18;--card:#172622;--tx:#e6f2ee;--mut:#8fb0a7;--bd:#2a413b;--ac:#4cc983;--red:#e86a6a;--redbg:#3a2224;--blue:#4aa3e8;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1b18;--card:#172622;--tx:#e6f2ee;--mut:#8fb0a7;--bd:#2a413b;--ac:#4cc983;--red:#e86a6a;--redbg:#3a2224;--blue:#4aa3e8;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.4}
+.wrap{max-width:1150px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px}
+h1{font-size:22px;margin:0}h1 span{color:var(--ac)}
+.sub{color:var(--mut);font-size:13px}
+.badge{padding:4px 10px;border-radius:99px;font-size:12px;background:var(--card);border:1px solid var(--bd)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}
+.kpi b{display:block;font-size:22px}.kpi small{color:var(--mut)}
+.main{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px}
+@media(max-width:800px){.main{grid-template-columns:1fr}}
+h2{font-size:15px;margin:0 0 8px}
+.mapbox{position:relative;margin:8px 0}
+.grid{display:grid;gap:4px}
+.cell{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;cursor:pointer;border:2px solid transparent}
+.cell.u{background:var(--bd);color:var(--mut)}.cell.g{background:var(--grn)}.cell.r{background:var(--red)}
+.cell.sel{border-color:var(--tx)}
+svg.path{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mut)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+button.s{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
+label{display:block;font-size:12px;color:var(--mut);margin-top:8px}
+input[type=range]{width:100%}
+.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:14px}
+.row:last-child{border:0}
+.bar{height:8px;background:var(--bd);border-radius:6px;overflow:hidden;margin:2px 0 6px}.bar div{height:100%;background:var(--ac);transition:width .3s}
+.list{max-height:170px;overflow-y:auto;font-size:13px}
+.list div{padding:4px 6px;margin:3px 0;border-radius:6px;background:var(--redbg)}
+.stack>*+*{margin-top:14px}
+.tank{display:flex;gap:14px;align-items:center}
+.tk{width:56px;height:110px;border:3px solid var(--blue);border-radius:8px 8px 14px 14px;position:relative;overflow:hidden;flex:none}
+.tk div{position:absolute;bottom:0;left:0;right:0;background:var(--blue);opacity:.75;transition:height .4s}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:560px){.two{grid-template-columns:1fr}}
+.alert{color:var(--red);font-weight:600}
+.note{font-size:12px;color:var(--mut);margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <div><h1>HYDRO<span>SYNC</span> Field Dashboard</h1><div class="sub">Rover scan map · each cell = 50 × 50 cm</div></div>
+ <span class="badge" id="st">Idle</span>
+</header>
+
+<div class="kpis">
+ <div class="card kpi"><small>Scanned</small><b id="kScan">0%</b></div>
+ <div class="card kpi"><small>Healthy cells</small><b id="kG" style="color:var(--grn)">0</b></div>
+ <div class="card kpi"><small>Problem cells</small><b id="kR" style="color:var(--red)">0</b></div>
+ <div class="card kpi"><small>Avg moisture</small><b id="kM">–</b></div>
+ <div class="card kpi"><small>Water needed</small><b id="kW">0 L</b></div>
+ <div class="card kpi"><small>Tank level</small><b id="kT">100%</b></div>
+</div>
+
+<div class="main">
+ <div class="card">
+  <h2>Field map and rover route</h2>
+  <div class="btns"><button id="bGo">Start scan</button><button class="s" id="bReset">Reset</button></div>
+  <div class="mapbox">
+   <div class="grid" id="grid"></div>
+   <svg class="path" id="svg" viewBox="0 0 8 6" preserveAspectRatio="none"><polyline id="pl" fill="none" stroke="#ff1f1f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle id="rv" r=".16" fill="#ff1f1f" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke" cx="-5" cy="-5"/></svg>
+  </div>
+  <div class="legend"><span><i style="background:var(--grn)"></i>Good</span><span><i style="background:var(--bd)"></i>Not scanned</span><span><i style="background:var(--red)"></i>Dry or hard soil</span><span><i style="background:#ff1f1f;height:3px;margin-top:5px"></i>Rover path</span></div>
+  <label>Dry if moisture below <b id="vM">30</b>%<input type="range" id="tM" min="10" max="60" value="30"></label>
+  <label>Hard if soil hardness above <b id="vH">70</b>/100<input type="range" id="tH" min="30" max="95" value="70"></label>
+  <label>Field: <b id="vC">8</b> × <b id="vR">6</b> cells = <b id="vA">4.0 × 3.0 m</b>
+   <input type="range" id="tC" min="4" max="12" value="8"><input type="range" id="tR" min="3" max="10" value="6"></label>
+ </div>
+
+ <div class="stack">
+  <div class="card"><h2>Live soil condition</h2>
+   <div class="sub" id="lc">Waiting for the rover…</div>
+   <div class="row"><span>Moisture</span><b id="lm">–</b></div><div class="bar"><div id="bm"></div></div>
+   <div class="row"><span>Hardness</span><b id="lh">–</b></div><div class="bar"><div id="bh" style="background:var(--red)"></div></div>
+   <div class="row"><span>Soil temp</span><b id="ls">–</b></div>
+   <div class="row"><span>Condition</span><b id="lv">–</b></div>
+  </div>
+  <div class="card"><h2>Selected cell</h2><div id="sel" class="sub">Tap a cell on the map.</div></div>
+ </div>
+</div>
+
+<div class="two" style="margin-top:14px">
+ <div class="card"><h2>Weather report</h2>
+  <div class="row"><span>Air temp</span><b id="tmp">–</b></div>
+  <div class="row"><span>Humidity</span><b id="hum">–</b></div><div class="bar"><div id="bhum" style="background:var(--blue)"></div></div>
+  <div class="row"><span>Wind</span><b id="wnd">–</b></div>
+  <div class="row"><span>Rain chance</span><b id="rain">–</b></div>
+  <div class="row"><span>Advice</span><b id="adv">–</b></div>
+ </div>
+ <div class="card"><h2>Water tank</h2>
+  <div class="tank"><div class="tk"><div id="tkf" style="height:100%"></div></div>
+   <div style="flex:1">
+    <div class="row"><span>Level</span><b id="tl">100%</b></div>
+    <div class="row"><span>Volume</span><b id="tv">–</b></div>
+    <div class="row"><span>Pump</span><b id="pp">Off</b></div>
+    <div class="row"><span>Status</span><b id="ts">OK</b></div>
+   </div></div>
+ </div>
+ <div class="card"><h2>Rover status</h2>
+  <div class="row"><span>Position</span><b id="pos">–</b></div>
+  <div class="row"><span>Heading</span><b id="hd">–</b></div>
+  <div class="row"><span>Obstacle distance</span><b id="obs">–</b></div>
+  <div class="row"><span>Battery</span><b id="batt">–</b></div><div class="bar"><div id="bb"></div></div>
+  <div class="row"><span>Solar charging</span><b id="sol">–</b></div>
+ </div>
+ <div class="card"><h2>Water quality probe</h2>
+  <div class="row"><span>pH</span><b id="ph">–</b></div>
+  <div class="row"><span>TDS</span><b id="tds">–</b></div>
+  <div class="row"><span>Turbidity</span><b id="trb">–</b></div>
+  <div class="row"><span>Verdict</span><b id="wq">–</b></div>
+ </div>
+</div>
+<div class="card" style="margin-top:14px"><h2>Irrigation to-do</h2><div class="list" id="todo"><span class="sub">Start the scan to see zones.</span></div></div>
+<p class="note">Demo mode: all readings are simulated. To use real data, set LIVE_URL in the script to your ESP32 endpoint.</p>
+</div>
+
+<script>
+// Set this to your ESP32 / backend JSON endpoint to switch from demo to live data.
+// Expected JSON: {"col":0,"row":0,"moisture":42,"hardness":50,"soilTemp":27,"temp":30,"humidity":60,"wind":8,"rain":20,"tank":80,"battery":90,"solar":7,"ph":7,"tds":300,"turbidity":3,"pump":false}
+var LIVE_URL='';
+var C=8,R=6,cells=[],pos=0,timer=null,sel=-1,order=[],tank=100,pump=false,last=null;
+var $=function(i){return document.getElementById(i)};
+function rnd(a,b){return a+Math.random()*(b-a)}
+function bad(x){return x.m<+$('tM').value||x.h>+$('tH').value}
+function name(x){return String.fromCharCode(65+x.r)+(x.c+1)}
+function build(){
+ stop();C=+$('tC').value;R=+$('tR').value;tank=100;pump=false;last=null;
+ $('vC').textContent=C;$('vR').textContent=R;$('vA').textContent=(C*.5).toFixed(1)+' × '+(R*.5).toFixed(1)+' m';
+ $('svg').setAttribute('viewBox','0 0 '+C+' '+R);
+ cells=[];order=[];
+ var dx=rnd(0,C),dy=rnd(0,R),hx=rnd(0,C),hy=rnd(0,R);
+ for(var r=0;r<R;r++)for(var c=0;c<C;c++){
+  var dd=Math.hypot(c-dx,r-dy),hd=Math.hypot(c-hx,r-hy);
+  cells.push({c:c,r:r,done:false,
+   m:Math.max(8,Math.min(75,rnd(38,60)-Math.max(0,22-dd*6)+rnd(-6,6))),
+   h:Math.max(10,Math.min(100,rnd(30,55)+Math.max(0,35-hd*9)+rnd(-8,8))),
+   t:rnd(24,30)});
+ }
+ for(var r=0;r<R;r++)for(var c=0;c<C;c++){var cc=(r%2)?C-1-c:c;order.push(r*C+cc)}
+ pos=0;sel=-1;$('grid').style.gridTemplateColumns='repeat('+C+',1fr)';
+ $('st').textContent='Idle';$('bGo').textContent='Start scan';
+ $('sel').textContent='Tap a cell on the map.';$('lc').textContent='Waiting for the rover…';
+ ['lm','lh','ls','lv','pos','hd'].forEach(function(i){$(i).textContent='–'});
+ $('bm').style.width='0';$('bh').style.width='0';
+ weather();tankUI();render();drawPath();
+}
+function drawPath(){
+ var pts=[];
+ for(var i=0;i<pos&&i<order.length;i++){var x=cells[order[i]];pts.push((x.c+.5)+','+(x.r+.5))}
+ $('pl').setAttribute('points',pts.join(' '));
+ var rv=$('rv');
+ if(pos>0){var y=cells[order[Math.min(pos,order.length)-1]];rv.setAttribute('cx',y.c+.5);rv.setAttribute('cy',y.r+.5)}else{rv.setAttribute('cx',-5);rv.setAttribute('cy',-5)}
+}
+function render(){
+ var h='',ng=0,nr=0,sm=0,w=0,todo='';
+ cells.forEach(function(x,i){
+  var k='u',t='';
+  if(x.done){k=bad(x)?'r':'g';t=Math.round(x.m)+'%';if(k=='r')nr++;else ng++;sm+=x.m;
+   if(bad(x)){var why=[];if(x.m<+$('tM').value){why.push('dry '+Math.round(x.m)+'%');w+=(+$('tM').value-x.m)*0.12}
+    if(x.h>+$('tH').value)why.push('hard '+Math.round(x.h));
+    todo+='<div><b>'+name(x)+'</b> ('+x.c*50+','+x.r*50+' cm) · '+why.join(', ')+'</div>'}}
+  h+='<div class="cell '+k+(i==sel?' sel':'')+'" data-i="'+i+'">'+t+'</div>';
+ });
+ $('grid').innerHTML=h;
+ var d=ng+nr;
+ $('kScan').textContent=Math.round(d/cells.length*100)+'%';
+ $('kG').textContent=ng;$('kR').textContent=nr;
+ $('kM').textContent=d?Math.round(sm/d)+'%':'–';
+ $('kW').textContent=w.toFixed(1)+' L';
+ $('todo').innerHTML=todo||'<span class="sub">'+(d?'No problem zones so far.':'Start the scan to see zones.')+'</span>';
+ if(sel>=0)showSel();
+}
+function showSel(){
+ var x=cells[sel];
+ if(!x.done){$('sel').innerHTML='<b>'+name(x)+'</b> · not scanned yet';return}
+ var b=bad(x);
+ $('sel').innerHTML='<div class="row"><span>Cell</span><b>'+name(x)+' ('+x.c*50+','+x.r*50+' cm)</b></div>'+
+ '<div class="row"><span>Moisture</span><b>'+x.m.toFixed(0)+'%</b></div>'+
+ '<div class="row"><span>Hardness</span><b>'+x.h.toFixed(0)+'/100</b></div>'+
+ '<div class="row"><span>Status</span><b style="color:var(--'+(b?'red':'grn')+')">'+(b?(x.m<+$('tM').value?'Needs water':'Compacted soil'):'Healthy')+'</b></div>';
+}
+function soilLive(x){
+ var m=x.m+rnd(-.8,.8),h=x.h+rnd(-1,1),b=bad(x);
+ $('lc').textContent='Reading cell '+name(x)+' at '+x.c*50+','+x.r*50+' cm';
+ $('lm').textContent=m.toFixed(1)+'%';$('bm').style.width=Math.max(0,Math.min(100,m))+'%';
+ $('lh').textContent=h.toFixed(0)+'/100';$('bh').style.width=Math.max(0,Math.min(100,h))+'%';
+ $('ls').textContent=x.t.toFixed(1)+' °C';
+ $('lv').innerHTML=b?'<span class="alert">'+(x.m<+$('tM').value?'Dry':'Hard')+'</span>':'<span style="color:var(--grn)">Good</span>';
+}
+function weather(){
+ var t=rnd(28,32),hu=rnd(55,70),rn=Math.round(rnd(5,60));
+ $('tmp').textContent=t.toFixed(1)+' °C';$('hum').textContent=Math.round(hu)+' %';$('bhum').style.width=hu+'%';
+ $('wnd').textContent=rnd(4,14).toFixed(0)+' km/h';$('rain').textContent=rn+' %';
+ $('adv').textContent=rn>50?'Delay watering':(t>31&&hu<60?'Water early':'Normal');
+}
+function tankUI(){
+ var t=Math.max(0,tank);
+ $('tkf').style.height=t+'%';$('tl').textContent=Math.round(t)+'%';$('kT').textContent=Math.round(t)+'%';
+ $('tv').textContent=Math.round(t*5)+' / 500 L';
+ $('pp').textContent=pump?'Running':'Off';
+ $('ts').innerHTML=t<20?'<span class="alert">Low, refill</span>':'OK';
+}
+function rover(x){
+ var p=pos>0?cells[order[pos-1]]:null,d='–';
+ if(p){d=x.c>p.c?'East →':x.c<p.c?'West ←':x.r>p.r?'South ↓':'—'}
+ $('pos').textContent=name(x)+' · '+x.c*50+','+x.r*50+' cm';$('hd').textContent=d;
+ $('obs').textContent=Math.round(rnd(40,200))+' cm';
+ var b=Math.max(20,100-pos*0.9);
+ $('batt').textContent=Math.round(b)+'%';$('bb').style.width=b+'%';$('sol').textContent=rnd(5,9).toFixed(1)+' W';
+ var ph=rnd(6.4,7.6),tds=rnd(180,520),tb=rnd(2,9);
+ $('ph').textContent=ph.toFixed(1);$('tds').textContent=Math.round(tds)+' ppm';$('trb').textContent=tb.toFixed(1)+' NTU';
+ $('wq').innerHTML=(ph>6.5&&ph<7.5&&tds<500&&tb<5)?'<span style="color:var(--grn)">Safe to reuse</span>':'<span class="alert">Needs treatment</span>';
+}
+function step(){
+ if(pos>=order.length){stop();pump=false;tankUI();$('st').textContent='Scan complete';return}
+ var x=cells[order[pos]];x.done=true;
+ pump=x.m<+$('tM').value;if(pump)tank-=1.6;
+ rover(x);soilLive(x);if(pos%6==0)weather();
+ pos++;tankUI();render();drawPath();
+}
+function applyLive(j){
+ var i=Math.min(cells.length-1,j.row*C+j.col),x=cells[i];if(!x)return;
+ x.done=true;x.m=j.moisture;x.h=j.hardness;x.t=j.soilTemp||x.t;
+ var k=order.indexOf(i);if(k>=pos)pos=k+1;
+ tank=j.tank;pump=!!j.pump;soilLive(x);
+ $('tmp').textContent=j.temp+' °C';$('hum').textContent=j.humidity+' %';$('bhum').style.width=j.humidity+'%';
+ $('wnd').textContent=j.wind+' km/h';$('rain').textContent=j.rain+' %';
+ $('batt').textContent=j.battery+'%';$('bb').style.width=j.battery+'%';$('sol').textContent=j.solar+' W';
+ $('ph').textContent=j.ph;$('tds').textContent=j.tds+' ppm';$('trb').textContent=j.turbidity+' NTU';
+ $('pos').textContent=name(x)+' · '+x.c*50+','+x.r*50+' cm';
+ tankUI();render();drawPath();
+}
+function stop(){if(timer){clearInterval(timer);timer=null}}
+$('bGo').onclick=function(){
+ if(LIVE_URL){$('st').textContent='Live';timer=setInterval(function(){fetch(LIVE_URL).then(function(r){return r.json()}).then(applyLive).catch(function(){$('st').textContent='No signal'})},2000);return}
+ if(timer){stop();this.textContent='Resume';$('st').textContent='Paused';return}
+ if(pos>=order.length)return;
+ timer=setInterval(step,400);this.textContent='Pause';$('st').textContent='Scanning…';
+};
+$('bReset').onclick=build;
+$('grid').onclick=function(e){var t=e.target.closest('.cell');if(t){sel=+t.dataset.i;render()}};
+$('tM').oninput=function(){$('vM').textContent=this.value;render()};
+$('tH').oninput=function(){$('vH').textContent=this.value;render()};
+$('tC').onchange=build;$('tR').onchange=build;
+$('tC').oninput=function(){$('vC').textContent=this.value};$('tR').oninput=function(){$('vR').textContent=this.value};
+build();
+</script>
+</body>
+</html>

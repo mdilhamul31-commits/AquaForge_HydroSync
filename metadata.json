@@ -1,0 +1,6 @@
+{
+  "name": "AQUAFORGE — HYDROSYNC",
+  "description": "Smart Agriculture and Automated Irrigation Monitoring System with Real-Time ESP32 Telemetry, Wokwi Simulation Sync, and Industrial Analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
